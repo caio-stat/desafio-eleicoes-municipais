@@ -89,6 +89,9 @@ def main():
         .str.upper() #deixa tudo maiúsculo
         .str.strip() #tira espaços em branco
     )
+    #
+    #   Criando a variável "eleito"
+    #
 
     #listando possiveis situações eleito
     #Ora, o que aconteceria se o TSE colocasse um novo tipo de eleito?
@@ -100,18 +103,78 @@ def main():
     print("\nDistribuição entre eleitos e não eleitos:")
     print(vereadores_df["eleito"].value_counts())
 
+    #
     #Taxa de eleição (percentual de vereadores eleitos)
-    print("\nPercentual de vereadores eleitos:")
+    #
+    print("\n Taxa de eleição. Percentual de vereadores eleitos:")
     taxa_eleicao = vereadores_df["eleito"].mean()
     print(f"{taxa_eleicao:.2%}")
 
+    def virgula_para_ponto(valor):
+        "Converte valores em formato brasileiro para formato americano"
+        if pd.isna(valor):
+            return 0
+        
+        valor = str(valor).strip()  # Remove espaços em branco
+        valor = valor.replace(".", "").replace(",", ".")  
+
+        try:
+            return float(valor)
+        except ValueError:
+            return 0  # Retorna 0 se a conversão falhar
+
+    bens_df["VR_BEM_CANDIDATO_NUM"] = bens_df["VR_BEM_CANDIDATO"].apply(virgula_para_ponto)
+
+    #Soma os bens dos candidatos
+    patrimonio_df = (
+        bens_df.groupby("SQ_CANDIDATO",as_index = False)
+        .sum()
+        .agg(
+            patrimonio_total = ("VR_BEM_CANDIDATO_NUM", "sum"),
+            quantidade_bens = ("VR_BEM_CANDIDATO_NUM", "count")
+        )
+    )
+
+    print("\nPatrimônio total e quantidade de bens dos candidatos:")
+    print(patrimonio_df.head())
+    print(patrimonio_df.shape)
+
+
+    #
+    # Fazendo um Join. Cada um com seus bens 
+    #
+    vereadores_df = ( vereadores_df.merge(
+
+        patrimonio_df,
+        on = "SQ_CANDIDATO",
+        how="left")
+    )
+
+    vereadores_df["patrimonio_total"] = vereadores_df["patrimonio_total"].fillna(0)
+    vereadores_df["quantidade_bens"] = vereadores_df["quantidade_bens"].fillna(0).astype(int)
+
+    vereadores_df["possui_bens"] = vereadores_df["quantidade_bens"] > 0
+
+    print("\nVereadores com patrimônio e quantidade de bens:")
+    print(vereadores_df[[
+        "SQ_CANDIDATO",
+        "NM_CANDIDATO",
+        "DS_SIT_TOT_TURNO",
+        "eleito",
+        "patrimonio_total",
+        "quantidade_bens",
+        "possui_bens"
+    ]].head(15))
+
+    print("\nResumo do patrimonio dos vereadores:")
+    print(vereadores_df["patrimonio_total"].describe())
+    
 
 
 
 
 
-
-
+    
 
 
 if __name__ == "__main__":

@@ -60,5 +60,23 @@ def main():
     print("Primeiras linhas da base de bens:")
     print(bens_df.head())
 
+    #colunas da base de candidatos
+    print("Colunas da base de candidatos:")
+    print(candidatos_df.columns.tolist())
+    
+    #colunas da base de bens
+    print("Colunas da base de bens:")
+    print(bens_df.columns.tolist())
+
+    print("Cargos encontrados na base de candidatos:")
+    print(candidatos_df['DS_CARGO'].value_counts(dropna=False))
+
+    print("Situações eleitorais encontradas:")
+    print(candidatos_df['DS_SIT_TOT_TURNO'].value_counts(dropna=False))
+
+    
+
+
+
 if __name__ == "__main__":
     main()

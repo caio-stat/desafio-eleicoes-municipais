@@ -127,11 +127,10 @@ def main():
 
     #Soma os bens dos candidatos
     patrimonio_df = (
-        bens_df.groupby("SQ_CANDIDATO",as_index = False)
-        .sum()
+        bens_df.groupby("SQ_CANDIDATO", as_index=False)
         .agg(
-            patrimonio_total = ("VR_BEM_CANDIDATO_NUM", "sum"),
-            quantidade_bens = ("VR_BEM_CANDIDATO_NUM", "count")
+            patrimonio_total=("VR_BEM_CANDIDATO_NUM", "sum"),
+            quantidade_bens=("VR_BEM_CANDIDATO_NUM", "count")
         )
     )
 
@@ -168,7 +167,7 @@ def main():
 
     print("\nResumo do patrimonio dos vereadores:")
     print(vereadores_df["patrimonio_total"].describe())
-    
+
 
 
 

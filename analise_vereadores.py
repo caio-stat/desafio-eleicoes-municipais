@@ -1,6 +1,8 @@
 from pathlib import Path
 
+
 import pandas as pd
+import numpy as np
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -211,6 +213,137 @@ def main():
             print(f"\n{nome_amigavel}: {formatar_numero(valor)}")
         else:
             print(f"\n{nome_amigavel}: {formatar_moeda(valor)}")
+
+    # Criando variáveis de perfil
+
+    vereadores_df["DT_NASCIMENTO"] = pd.to_datetime(
+        vereadores_df["DT_NASCIMENTO"], format="%d/%m/%Y", errors="coerce"
+    )
+
+    vereadores_df["DT_ELEICAO"] = pd.to_datetime(
+        vereadores_df["DT_ELEICAO"], format="%d/%m/%Y", errors="coerce"
+    )
+
+    vereadores_df["idade"] = (
+        vereadores_df["DT_ELEICAO"] - vereadores_df["DT_NASCIMENTO"]
+    ).dt.days // 365
+
+    vereadores_df["faixa_etaria_fases"] = pd.cut(
+        vereadores_df["idade"],
+        # Aqui vale minha experiência de ser humano e não de estatístico.
+        # Essas faixas representam não valores quantitativos.
+        # São marcos de vida, que representam fases da vida de uma pessoa.
+        bins=[0, 25, 30, 35, 40, 50, 60, 80, 100, 120],
+        labels=[
+            "Até 25 anos",
+            "26 a 30 anos",
+            "31 a 35 anos",
+            "36 a 40 anos",
+            "41 a 50 anos",
+            "51 a 60 anos",
+            "61 a 80 anos",
+            "81 a 100 anos",
+            "Acima de 100 anos",
+        ],
+    )
+
+    # Só que ainda não é estatístico o suficiente.
+    # Vamos usar a Regra de Sturges :)
+    # Amplitude total = maior valor - menor valor
+    # Número de classes = 1 + 3,322 * log10(n) n é o número de observações.
+    # Amplitude de cada classe = amplitude total / número de classes
+
+    idades_validas = vereadores_df[
+        "idade"
+    ].dropna()  # dropna() para evitar problemas com valores nulos
+    n = len(idades_validas)
+    amplitude_total = idades_validas.max() - idades_validas.min()
+    numero_classes = int(
+        np.ceil(1 + 3.322 * np.log10(n))
+    )  # ceil para arredondar para cima, garantindo que tenhamos classes suficientes
+
+    amplitude_classe = np.ceil(amplitude_total / numero_classes)
+
+    print("\nCálculo estatístico das faixas etárias:")
+    print(f"Quantidade de candidatos com idade válida: {n}")
+    print(f"Menor idade: {idades_validas.min():.0f} anos")
+    print(f"Maior idade: {idades_validas.max():.0f} anos")
+    print(f"Amplitude total: {amplitude_total:.0f} anos")
+    print(f"Número de classes pela Regra de Sturges: {numero_classes}")
+    print(f"Amplitude de cada classe: {amplitude_classe:.0f} anos")
+
+    limite_inferior = idades_validas.min()
+    limite_superior = idades_validas.max() + amplitude_classe
+
+    bins_idade = np.arange(
+        limite_inferior, limite_superior + amplitude_classe, amplitude_classe
+    )
+
+    vereadores_df["faixa_etaria"] = pd.cut(
+        vereadores_df["idade"], bins=bins_idade, include_lowest=True, right=True
+    )  # pd.cut cria as faixas etárias com base nos limites calculados
+
+    # Deixar os nomes bonitos
+
+    def formatar_intervalo_idade(intervalo):
+        if pd.isna(intervalo):
+            return "Sem informação"
+
+        inicio = int(np.floor(intervalo.left))
+        fim = int(np.floor(intervalo.right))
+
+        return f"{inicio} a {fim} anos"
+
+    vereadores_df["faixa_etaria"] = vereadores_df["faixa_etaria"].apply(
+        formatar_intervalo_idade
+    )
+
+    print("\nDistribuição/Perfil de candidatos por faixa etária:")
+    print(vereadores_df["faixa_etaria"].value_counts(dropna=False).sort_index())
+
+    print("\nDistribuição/Perfil de candidatos por faixa etária (fases da vida):")
+    print(vereadores_df["faixa_etaria_fases"].value_counts(dropna=False).sort_index())
+
+    # genero
+    print("\nDistribuição/Perfil de candidatos por gênero:")
+    print(vereadores_df["DS_GENERO"].value_counts(dropna=False))
+
+    # escolaridade
+    print("\nDistribuição/Perfil de candidatos por escolaridade:")
+    print(vereadores_df["DS_GRAU_INSTRUCAO"].value_counts(dropna=False))
+
+    #
+    # Eleição por perfil
+    #
+
+    def resumo_taxa_eleicao(df, coluna_perfil):
+        resumo = (
+            df.groupby(coluna_perfil)
+            .agg(
+                total_candidatos=("SQ_CANDIDATO", "count"),
+                total_eleitos=("eleito", "sum"),
+                taxa_eleicao=("eleito", "mean"),
+                # diferença median e mean: mediana valor do meio
+                patrimonio_mediano=("patrimonio_total", "median"),
+            )
+            .reset_index()
+        )
+        resumo["taxa_eleicao"] = (
+            resumo["taxa_eleicao"] * 100
+        )  # Convertendo para percentual
+        return resumo.sort_values("taxa_eleicao", ascending=False)
+
+    print("\nResumo da taxa de eleição por faixa etária:")
+    print(resumo_taxa_eleicao(vereadores_df, "faixa_etaria"))
+
+    print("\nResumo da taxa de eleição por faixa etária (fases da vida):")
+    print(resumo_taxa_eleicao(vereadores_df, "faixa_etaria_fases"))
+
+    print("\nResumo da taxa de eleição por gênero:")
+    print(resumo_taxa_eleicao(vereadores_df, "DS_GENERO"))
+
+    print("\nResumo da taxa de eleição por escolaridade:")
+    print(resumo_taxa_eleicao(vereadores_df, "DS_GRAU_INSTRUCAO"))
 
 
 if __name__ == "__main__":

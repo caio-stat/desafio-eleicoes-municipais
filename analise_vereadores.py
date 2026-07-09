@@ -12,6 +12,13 @@ ARQUIVO_CANDIDATOS = DATA_RAW_DIR / "consulta_cand_2024_BA.csv"
 
 ARQUIVO_BENS = DATA_RAW_DIR / "bem_candidato_2024_BA.csv"
 
+DATA_DIR = BASE_DIR / "data"
+OUTPUTS_DIR = BASE_DIR / "outputs"
+FIGURES_DIR = BASE_DIR / "figures"
+
+OUTPUTS_DIR.mkdir(exist_ok=True)
+FIGURES_DIR.mkdir(exist_ok=True)
+
 # Isso não é legal. Ficamos pressionados e temos que fazer isso.
 # Imagina se chega um novo tipo de nulo que não está na lista? Então, vamos tratar isso de forma mais genérica e ampla.
 VALORES_NULOS = [
@@ -344,6 +351,108 @@ def main():
 
     print("\nResumo da taxa de eleição por escolaridade:")
     print(resumo_taxa_eleicao(vereadores_df, "DS_GRAU_INSTRUCAO"))
+
+    #
+    # Tabelas resumo
+    #
+
+    resumo_genero = resumo_taxa_eleicao(vereadores_df, "DS_GENERO")
+    resumo_faixa_etaria = resumo_taxa_eleicao(vereadores_df, "faixa_etaria")
+    resumo_faixa_etaria_fases = resumo_taxa_eleicao(vereadores_df, "faixa_etaria_fases")
+    resumo_escolaridade = resumo_taxa_eleicao(vereadores_df, "DS_GRAU_INSTRUCAO")
+    resumo_partido = resumo_taxa_eleicao(vereadores_df, "SG_PARTIDO")
+
+    print("\nResumo por genero: ")
+    print(resumo_genero)
+
+    print("\nResumo por faixa etária: ")
+    print(resumo_faixa_etaria)
+
+    print("\nResumo por faixa etária (fases da vida): ")
+    print(resumo_faixa_etaria_fases)
+
+    print("\nResumo por escolaridade: ")
+    print(resumo_escolaridade)
+
+    print("\nResumo por partido: ")
+    print(resumo_partido.head(20))  # Mostrando apenas os 20 primeiros partidos
+
+    #
+    # Exportando os dados tratados
+    #
+
+    colunas_powerbi = [
+        "SQ_CANDIDATO",
+        "NM_CANDIDATO",
+        "NM_URNA_CANDIDATO",
+        "NM_UE",
+        "SG_PARTIDO",
+        "NM_PARTIDO",
+        "DS_CARGO",
+        "DS_SIT_TOT_TURNO",
+        "eleito",
+        "DS_GENERO",
+        "DS_GRAU_INSTRUCAO",
+        "DS_COR_RACA",
+        "DS_ESTADO_CIVIL",
+        "DS_OCUPACAO",
+        "DT_NASCIMENTO",
+        "DT_ELEICAO",
+        "idade",
+        "faixa_etaria",
+        "faixa_etaria_fases",
+        "patrimonio_total",
+        "quantidade_bens",
+        "possui_bens",
+    ]
+
+    vereadores_powerbi_df = vereadores_df[colunas_powerbi].copy()
+
+    vereadores_powerbi_df.to_csv(
+        DATA_DIR / "vereadores_ba_2024_powerbi.csv",
+        sep=";",
+        index=False,
+        decimal=",",
+        encoding="utf-8-sig",  # utf-8-sig para evitar problemas de acentuação no Power BI
+    )
+
+    resumo_genero.to_csv(
+        OUTPUTS_DIR / "resumo_por_genero.csv",
+        sep=";",
+        index=False,
+        decimal=",",
+        encoding="utf-8-sig",
+    )
+    resumo_faixa_etaria.to_csv(
+        OUTPUTS_DIR / "resumo_por_faixa_etaria.csv",
+        sep=";",
+        index=False,
+        decimal=",",
+        encoding="utf-8-sig",
+    )
+    resumo_faixa_etaria_fases.to_csv(
+        OUTPUTS_DIR / "resumo_por_faixa_etaria_fases.csv",
+        sep=";",
+        index=False,
+        decimal=",",
+        encoding="utf-8-sig",
+    )
+    resumo_escolaridade.to_csv(
+        OUTPUTS_DIR / "resumo_por_escolaridade.csv",
+        sep=";",
+        index=False,
+        decimal=",",
+        encoding="utf-8-sig",
+    )
+    resumo_partido.to_csv(
+        OUTPUTS_DIR / "resumo_por_partido.csv",
+        sep=";",
+        index=False,
+        decimal=",",
+        encoding="utf-8-sig",
+    )
+
+    print("\nDados tratados e resumos exportados com sucesso!")
 
 
 if __name__ == "__main__":

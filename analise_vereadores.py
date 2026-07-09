@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -353,6 +354,41 @@ def main():
     print(resumo_taxa_eleicao(vereadores_df, "DS_GRAU_INSTRUCAO"))
 
     #
+    # Faixas de patrimonio
+    #
+    # esse código ficou ruim pq o matplot não interpretou bem os intervalos de patrimônio, então foi comentado. Mas deixei aqui para referência futura.
+
+    """ vereadores_df["faixa_patrimonio"] = pd.cut(
+        vereadores_df["patrimonio_total"],
+        bins=[-1, 0, 10000, 20000, 50000, 75000, 100000, 500000, float("inf")],
+        labels=[
+            "Sem bens declarados",
+            "Até R$ 10 mil",
+            "R$ 10 mil a R$ 20 mil",
+            "R$ 20 mil a R$ 50 mil",
+            "R$ 50 mil a R$ 75 mil",
+            "R$ 75 mil a R$ 100 mil",
+            "R$ 100 mil a R$ 500 mil",
+            "Acima de R$ 500 mil",
+        ],
+    ) """
+
+    vereadores_df["faixa_patrimonio"] = pd.cut(
+        vereadores_df["patrimonio_total"],
+        bins=[-1, 0, 10_000, 20_000, 50_000, 75_000, 100_000, 500_000, float("inf")],
+        labels=[
+            "Sem bens declarados",
+            "Até R$ 10 mil",
+            "R$ 10 mil a R$ 20 mil",
+            "R$ 20 mil a R$ 50 mil",
+            "R$ 50 mil a R$ 75 mil",
+            "R$ 75 mil a R$ 100 mil",
+            "R$ 100 mil a R$ 500 mil",
+            "Acima de R$ 500 mil",
+        ],
+    )
+
+    #
     # Tabelas resumo
     #
 
@@ -361,6 +397,7 @@ def main():
     resumo_faixa_etaria_fases = resumo_taxa_eleicao(vereadores_df, "faixa_etaria_fases")
     resumo_escolaridade = resumo_taxa_eleicao(vereadores_df, "DS_GRAU_INSTRUCAO")
     resumo_partido = resumo_taxa_eleicao(vereadores_df, "SG_PARTIDO")
+    resumo_patrimonio = resumo_taxa_eleicao(vereadores_df, "faixa_patrimonio")
 
     print("\nResumo por genero: ")
     print(resumo_genero)
@@ -376,6 +413,9 @@ def main():
 
     print("\nResumo por partido: ")
     print(resumo_partido.head(20))  # Mostrando apenas os 20 primeiros partidos
+
+    print("\nResumo por faixa de patrimônio: ")
+    print(resumo_patrimonio)
 
     #
     # Exportando os dados tratados
@@ -402,6 +442,7 @@ def main():
         "faixa_etaria",
         "faixa_etaria_fases",
         "patrimonio_total",
+        "faixa_patrimonio",
         "quantidade_bens",
         "possui_bens",
     ]
@@ -451,8 +492,84 @@ def main():
         decimal=",",
         encoding="utf-8-sig",
     )
+    resumo_patrimonio.to_csv(
+        OUTPUTS_DIR / "resumo_por_faixa_patrimonio.csv",
+        sep=";",
+        index=False,
+        decimal=",",
+        encoding="utf-8-sig",
+    )
 
     print("\nDados tratados e resumos exportados com sucesso!")
+
+    def escapar_texto_matplotlib(texto):
+        """
+        Evita que o matplotlib interprete o símbolo $ como fórmula matemática.
+        """
+        return str(texto).replace("$", r"\$")
+
+    def grafico_taxa_eleicao(resumo, coluna, titulo, nome_arquivo):
+        """
+        Cria gráfico de barras horizontais com a taxa de eleição por grupo
+        e adiciona o percentual ao lado de cada barra.
+        """
+        dados = resumo.copy()
+        dados = dados.sort_values("taxa_eleicao", ascending=True)
+
+        categorias = dados[coluna].astype(str).apply(escapar_texto_matplotlib)
+        valores = dados["taxa_eleicao"]
+
+        fig, ax = plt.subplots(figsize=(11, 6))
+
+        barras = ax.barh(categorias, valores)
+
+        ax.set_title(titulo, fontsize=14)
+        ax.set_xlabel("Taxa de eleição (%)")
+        ax.set_ylabel("")
+
+        maior_valor = valores.max()
+        ax.set_xlim(0, maior_valor * 1.15)
+
+        for barra, valor in zip(barras, valores):
+            largura = barra.get_width()
+            posicao_y = barra.get_y() + barra.get_height() / 2
+
+            ax.text(
+                largura + maior_valor * 0.01,
+                posicao_y,
+                f"{valor:.1f}%",
+                va="center",
+                fontsize=10,
+            )
+
+        plt.tight_layout()
+
+        caminho = FIGURES_DIR / nome_arquivo
+        plt.savefig(caminho, dpi=300, bbox_inches="tight")
+        plt.close()
+
+        print(f"Gráfico salvo em: {caminho}")
+
+    grafico_taxa_eleicao(
+        resumo_patrimonio,
+        "faixa_patrimonio",
+        "Taxa de eleição por faixa de patrimônio declarado",
+        "taxa_eleicao_faixa_patrimonio.png",
+    )
+
+    grafico_taxa_eleicao(
+        resumo_escolaridade,
+        "DS_GRAU_INSTRUCAO",
+        "Taxa de eleição por escolaridade",
+        "taxa_eleicao_escolaridade.png",
+    )
+
+    grafico_taxa_eleicao(
+        resumo_faixa_etaria,
+        "faixa_etaria",
+        "Taxa de eleição por faixa etária",
+        "taxa_eleicao_faixa_etaria.png",
+    )
 
 
 if __name__ == "__main__":

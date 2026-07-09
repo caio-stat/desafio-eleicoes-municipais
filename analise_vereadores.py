@@ -662,6 +662,69 @@ def main():
         encoding="utf-8-sig",
     )
 
+    # ============================================================
+    # Resumo executivo
+    # ============================================================
+    # por enquanto tá do jeito que IA cuspiu
+    # TODO : melhorar o resumo executivo, deixar mais humano e menos robótico
+
+    total_candidatos = len(vereadores_df)
+    total_eleitos = vereadores_df["eleito"].sum()
+    taxa_eleicao = vereadores_df["eleito"].mean() * 100
+
+    patrimonio_mediano_eleitos = vereadores_df.loc[
+        vereadores_df["eleito"], "patrimonio_total"
+    ].median()
+
+    patrimonio_mediano_nao_eleitos = vereadores_df.loc[
+        ~vereadores_df["eleito"], "patrimonio_total"
+    ].median()
+
+    percentual_sem_bens_eleitos = (
+        ~vereadores_df.loc[vereadores_df["eleito"], "possui_bens"]
+    ).mean() * 100
+
+    percentual_sem_bens_nao_eleitos = (
+        ~vereadores_df.loc[~vereadores_df["eleito"], "possui_bens"]
+    ).mean() * 100
+
+    resumo_executivo = f"""
+    # Resumo executivo
+
+    A análise considera candidatos a vereador nas eleições municipais de 2024 na Bahia.
+
+    ## Principais números
+
+    - Total de candidatos a vereador analisados: {total_candidatos:,.0f}
+    - Total de eleitos: {total_eleitos:,.0f}
+    - Taxa geral de eleição: {taxa_eleicao:.2f}%
+    - Patrimônio mediano dos eleitos: {formatar_moeda(patrimonio_mediano_eleitos)}
+    - Patrimônio mediano dos não eleitos: {formatar_moeda(patrimonio_mediano_nao_eleitos)}
+    - Eleitos sem bens declarados: {percentual_sem_bens_eleitos:.2f}%
+    - Não eleitos sem bens declarados: {percentual_sem_bens_nao_eleitos:.2f}%
+
+    ## Interpretação
+
+    A taxa de eleição mostra que apenas uma parte pequena dos candidatos a vereador consegue se eleger.
+
+    A comparação entre eleitos e não eleitos indica diferença relevante no patrimônio declarado. A mediana é usada porque o patrimônio possui valores muito desiguais e a média pode ser distorcida por poucos candidatos com patrimônio muito alto.
+
+    Também foram analisadas diferenças por gênero, escolaridade, faixa etária, partido e faixa de patrimônio. Essas comparações ajudam a identificar padrões associados ao resultado eleitoral, sem afirmar causalidade.
+
+    ## Importância da estatística
+
+    A estatística básica foi usada para resumir o perfil dos candidatos. A probabilidade aparece na interpretação da taxa de eleição como proporção observada. A inferência estatística foi aplicada para avaliar se características dos candidatos apresentam associação com o resultado eleitoral.
+    """
+
+    resumo_executivo = resumo_executivo.replace(",", ".")
+
+    caminho_resumo = OUTPUTS_DIR / "resumo_executivo.md"
+
+    with open(caminho_resumo, "w", encoding="utf-8") as arquivo:
+        arquivo.write(resumo_executivo)
+
+    print(f"\nResumo executivo salvo em: {caminho_resumo}")
+
 
 if __name__ == "__main__":
     main()

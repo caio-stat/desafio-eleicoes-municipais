@@ -1,4 +1,5 @@
 from pathlib import Path
+from scipy.stats import chi2_contingency
 
 
 import pandas as pd
@@ -128,6 +129,69 @@ def main():
     print("\n Taxa de eleição. Percentual de vereadores eleitos:")
     taxa_eleicao = vereadores_df["eleito"].mean()
     print(f"{taxa_eleicao:.2%}")
+
+    # Intervalo de confiança da taxa de eleição.
+    # Intervalo de confiança é um intervalo de valores que tem uma probabilidade específica de conter o valor verdadeiro de uma população.
+    # Aqui, estamos calculando o intervalo de confiança de 95% para a taxa de eleição dos vereadores.
+    n_candidatos = (
+        vereadores_df["eleito"].notna().sum()
+    )  # Número de candidatos com informação de eleição
+    proporcao_eleitos = vereadores_df["eleito"].mean()  # Proporção de eleitos
+    # Distribuição Bernoulli: A distribuição de Bernoulli é uma distribuição de probabilidade discreta
+    #  para uma variável aleatória que só pode ter dois resultados possíveis,
+    # geralmente representados como 0 e 1. No contexto da eleição,
+    # podemos modelar a situação de um candidato como uma variável aleatória de Bernoulli,
+    #  onde 1 representa "eleito" e 0 representa "não eleito".
+    # A proporção de eleitos (taxa de eleição) é a probabilidade de sucesso (p) na distribuição de Bernoulli.
+    # p * (1 - p) / n é a variância da distribuição de Bernoulli, e n é o número de candidatos.
+    # Como não é de um único candidato, mas de uma amostra de candidatos,
+    # usamos a raiz quadrada da variância para calcular o erro padrão da proporção.
+    erro_padrao = np.sqrt(
+        proporcao_eleitos * (1 - proporcao_eleitos) / n_candidatos
+    )  # Erro padrão da proporção.
+
+    z_score = 1.96  # Z-score para 95% de confiança (consultar tabela Z)
+
+    limite_inferior = proporcao_eleitos - z_score * erro_padrao
+    limite_superior = proporcao_eleitos + z_score * erro_padrao
+
+    print("\nIntervalo de confiança de 95% para a taxa de eleição:")
+    print(f"Taxa observada: {proporcao_eleitos:.2%}")
+    print(f"Limite inferior: {limite_inferior:.2%}")
+    print(f"Limite superior: {limite_superior:.2%}")
+
+    # ============================================================
+
+    # Inferência: teste de associação qui-quadrado
+    # ============================================================
+
+    def teste_associacao_quiquadrado(df, coluna):
+        """
+        Testa se existe associação estatística entre uma variável categórica
+        e o fato de o candidato ter sido eleito ou não.
+
+        Hipótese nula:
+        - Não há associação entre a variável analisada e a eleição.
+
+        Hipótese alternativa:
+        - Há associação entre a variável analisada e a eleição.
+        """
+        dados = df[[coluna, "eleito"]].dropna()
+
+        tabela = pd.crosstab(dados[coluna], dados["eleito"])
+
+        chi2, p_valor, graus_liberdade, _ = chi2_contingency(tabela)
+
+        return {
+            "variavel": coluna,
+            "qui_quadrado": chi2,
+            "p_valor": p_valor,
+            "graus_liberdade": graus_liberdade,
+            "categorias": tabela.shape[0],
+        }
+
+    # Os testes de associação qui-quadrado serão calculados após a criação
+    # das variáveis de perfil (`faixa_etaria`, `faixa_patrimonio`).
 
     def virgula_para_ponto(valor):
         "Converte valores em formato brasileiro para formato americano"
@@ -373,6 +437,8 @@ def main():
         ],
     ) """
 
+    # Para gerar esse gráfico de patrimonio tive que apelar muito para IA
+
     vereadores_df["faixa_patrimonio"] = pd.cut(
         vereadores_df["patrimonio_total"],
         bins=[-1, 0, 10_000, 20_000, 50_000, 75_000, 100_000, 500_000, float("inf")],
@@ -569,6 +635,31 @@ def main():
         "faixa_etaria",
         "Taxa de eleição por faixa etária",
         "taxa_eleicao_faixa_etaria.png",
+    )
+
+    # Voltando ao quiquadrado e exportando ele
+
+    # Agora que `faixa_etaria` e `faixa_patrimonio` foram criadas, rodamos os
+    # testes de associação qui-quadrado e construímos o DataFrame de resultados.
+    testes_associacao = [
+        teste_associacao_quiquadrado(vereadores_df, "DS_GENERO"),
+        teste_associacao_quiquadrado(vereadores_df, "DS_GRAU_INSTRUCAO"),
+        teste_associacao_quiquadrado(vereadores_df, "faixa_etaria"),
+        teste_associacao_quiquadrado(vereadores_df, "faixa_patrimonio"),
+        teste_associacao_quiquadrado(vereadores_df, "SG_PARTIDO"),
+    ]
+
+    testes_associacao_df = pd.DataFrame(testes_associacao)
+
+    print("\nTestes de associação com eleição:")
+    print(testes_associacao_df)
+
+    testes_associacao_df.to_csv(
+        OUTPUTS_DIR / "testes_associacao_quiquadrado.csv",
+        index=False,
+        sep=";",
+        decimal=",",
+        encoding="utf-8-sig",
     )
 
 

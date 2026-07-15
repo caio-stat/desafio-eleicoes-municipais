@@ -1,0 +1,53 @@
+{
+  "name": "Bahia Eleições 2024 — Pastel Analítico",
+  "dataColors": [
+    "#6FAF9B",
+    "#88A6C9",
+    "#A895C7",
+    "#E9AE8C",
+    "#D98282",
+    "#D8B25C",
+    "#8FC9C0",
+    "#C98FA7",
+    "#9AB987",
+    "#A9C5E8"
+  ],
+  "good": "#5E9F78",
+  "neutral": "#D8B25C",
+  "bad": "#C96F70",
+  "maximum": "#5A8F7B",
+  "center": "#F7E7B2",
+  "minimum": "#E7A0A0",
+  "null": "#C6CBD4",
+  "background": "#F7F8FA",
+  "firstLevelElements": "#27313A",
+  "secondLevelElements": "#65717C",
+  "thirdLevelElements": "#E5E9ED",
+  "fourthLevelElements": "#AAB3BC",
+  "secondaryBackground": "#EEF1F4",
+  "tableAccent": "#6FAF9B",
+  "hyperlink": "#5B79B6",
+  "visitedHyperlink": "#8C73B8",
+  "textClasses": {
+    "callout": {
+      "fontSize": 30,
+      "fontFace": "Segoe UI Semibold",
+      "color": "#27313A"
+    },
+    "title": {
+      "fontSize": 13,
+      "fontFace": "Segoe UI Semibold",
+      "color": "#27313A"
+    },
+    "header": {
+      "fontSize": 12,
+      "fontFace": "Segoe UI Semibold",
+      "color": "#27313A"
+    },
+    "label": {
+      "fontSize": 10,
+      "fontFace": "Segoe UI",
+      "color": "#4F5B66"
+    }
+  }
+}

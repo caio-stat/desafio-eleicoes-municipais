@@ -1,0 +1,5 @@
+﻿sigla;tipo;valor;interpretacao
+TN;Verdadeiro negativo;4232;Não eleitos previstos corretamente como não eleitos
+FP;Falso positivo;1175;Não eleitos previstos incorretamente como eleitos
+FN;Falso negativo;291;Eleitos previstos incorretamente como não eleitos
+TP;Verdadeiro positivo;627;Eleitos previstos corretamente como eleitos

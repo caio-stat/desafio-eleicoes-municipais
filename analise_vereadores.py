@@ -6,6 +6,20 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
+from sklearn.compose import ColumnTransformer
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import (
+    classification_report,
+    confusion_matrix,
+    roc_auc_score,
+    RocCurveDisplay,
+)
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+
+
 BASE_DIR = Path(__file__).resolve().parent
 
 DATA_RAW_DIR = BASE_DIR / "data" / "raw"
@@ -724,6 +738,232 @@ def main():
         arquivo.write(resumo_executivo)
 
     print(f"\nResumo executivo salvo em: {caminho_resumo}")
+
+    # Vamos para a coqueluche do momento
+    # Regressão logística
+
+    def regressao_logistica(vereadores_df, outputs_dir, figures_dir):
+        """
+        Treina uma regressão logística para estimar a probabilidade
+        de eleição de candidatos a vereador.
+
+        O modelo é exploratório e identifica associações preditivas,
+        não relações de causa e efeito.
+        """
+        print("\nModelo de Preditivo - Regressão Logística")
+
+        dados_modelo = vereadores_df.loc[
+            vereadores_df["DS_SIT_TOT_TURNO"].notna()
+        ].copy()
+
+        # Como desconfiamos, o patrimônio é desigual :`(
+        # Usando lo1p para usar patrimônios igual a zero
+        dados_modelo["log_patrimonio"] = np.log1p(dados_modelo["patrimonio_total"])
+
+        variaveis_numericas = ["idade", "log_patrimonio", "quantidade_bens"]
+
+        variaveis_categoricas = [
+            "DS_GENERO",
+            "DS_GRAU_INSTRUCAO",
+            "DS_COR_RACA",
+            "DS_OCUPACAO",
+            "SG_PARTIDO",
+        ]
+
+        variaveis_modelo = variaveis_numericas + variaveis_categoricas
+        X = dados_modelo[variaveis_modelo]
+        y = dados_modelo["eleito"].astype(int)
+
+        # Separando os dados de treinamento e teste
+
+        X_treino, X_teste, y_treino, y_teste = train_test_split(
+            X,
+            y,
+            random_state=42,  # Guia do mochileiro das galáxias: Calma, moreno. 42 é resposta para tudo
+            stratify=y,
+        )
+
+        tratamento_numerico = Pipeline(
+            steps=[
+                (
+                    "preencher_nulos",
+                    SimpleImputer(strategy="median"),
+                ),
+                (
+                    "padronizacao",
+                    StandardScaler(),
+                ),
+            ]
+        )
+
+        tratamento_categorico = Pipeline(
+            steps=[
+                (
+                    "preencher_nulos",
+                    SimpleImputer(strategy="most_frequent"),
+                ),
+                (
+                    "onehot",
+                    OneHotEncoder(handle_unknown="ignore"),
+                ),
+            ]
+        )
+        preprocessamento = ColumnTransformer(
+            transformers=[
+                (
+                    "numericas",
+                    tratamento_numerico,
+                    variaveis_numericas,
+                ),
+                (
+                    "categoricas",
+                    tratamento_categorico,
+                    variaveis_categoricas,
+                ),
+            ]
+        )
+
+        modelo = Pipeline(
+            steps=[
+                (
+                    "preprocessamento",
+                    preprocessamento,
+                ),
+                (
+                    "classificador",
+                    LogisticRegression(
+                        class_weight="balanced",
+                        solver="liblinear",
+                        max_iter=2000,
+                        random_state=42,
+                    ),
+                ),
+            ]
+        )
+
+        modelo.fit(X_treino, y_treino)
+
+        previsoes = modelo.predict(X_teste)
+        probabilidades = modelo.predict_proba(X_teste)[:, 1]
+
+        auc_roc = roc_auc_score(
+            y_teste,
+            probabilidades,
+        )
+
+        print(f"\nCandidatos usados no modelo: {len(dados_modelo):,}")
+        print(f"Registros de treinamento: {len(X_treino):,}")
+        print(f"Registros de teste: {len(X_teste):,}")
+        print(f"ROC AUC: {auc_roc:.3f}")
+
+        print("\nRelatório de classificação")
+        print(
+            classification_report(
+                y_teste,
+                previsoes,
+                target_names=["Não Eleito", "Eleito"],
+                zero_division=0,
+            )
+        )
+
+        # Matriz de confusão %-)
+
+        matriz = confusion_matrix(
+            y_teste,
+            previsoes,
+        )
+
+        matriz_df = pd.DataFrame(
+            matriz,
+            index=[
+                "Real: Não EleitoReal: Eleito",
+            ],
+            columns=[
+                "Previsto: Eleito",
+                "Previsto: Não Eleito",
+            ],
+        )
+        matriz_df.to_csv(
+            outputs_dir / "matriz_confusao_regressao_logistica.csv",
+            sep=";",
+            encoding="utf-8-sig",
+        )
+
+        # Métricas
+
+        metricas = classification_report(
+            y_teste,
+            previsoes,
+            target_names=["Não Eleito", "Eleito"],
+            output_dict=True,
+            zero_division=0,
+        )
+        metricas_df = pd.DataFrame(metricas).transpose()
+        metricas_df.loc["modelo", "roc_auc"] = auc_roc
+        metricas_df.to_csv(
+            outputs_dir / "metricas_regressao_logistica.csv",
+            sep=";",
+            decimal=",",
+            encoding="utf-8-sig",
+        )
+
+        # Curva ROC
+
+        RocCurveDisplay.from_predictions(
+            y_teste,
+            probabilidades,
+            name="Regressão Logística -AUC = {auc_roc:.3f}",
+        )
+        plt.title("Curva ROC - modelo de eleição")
+        plt.tight_layout()
+
+        plt.savefig(
+            figures_dir / "curva_roc_regressao_logistica.png",
+            dpi=300,
+            bbox_inches="tight",
+        )
+
+        plt.close()
+
+        # Váriaveis importantes
+
+        nomes_variaveis = modelo.named_steps[
+            "preprocessamento"
+        ].get_features_names_out()
+
+        coeficientes = modelo.named_steps["classificador"].coef_[0]
+
+        importancia_df = pd.DataFrame(
+            {
+                "variavel": nomes_variaveis,
+                "coeficiente": coeficientes,
+                "coeficiente_absoluto": np.abs(coeficientes),
+            }
+        )
+
+        importancia_df = importancia_df.sort_values(
+            "coeficiente_absoluto",
+            ascending=False,
+        )
+        importancia_df.to_csv(
+            outputs_dir / "coeficientes_regressao_logistica.csv",
+            index=False,
+            sep=";",
+            decimal=",",
+            encoding="utf-8-sig",
+        )
+        print("\nVariaveis com maior peso absoluto no modelo:")
+        print(importancia_df[["variavel", "coeficiente"]].head(20))
+
+        return modelo, auc_roc, importancia_df
+
+    modelo_eleicao, auc_roc, importancia_modelo = regressao_logistica(
+        vereadores_df,
+        OUTPUTS_DIR,
+        FIGURES_DIR,
+    )
+
+    return
 
 
 if __name__ == "__main__":
